@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gym & Dieta</title>
+    <style>
+        /* Variables de color premium */
+        :root {
+            --bg-color: #0d0d0d;
+            --glass-bg: rgba(30, 30, 30, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --neon-cyan: #00ffcc;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            /* Evita el scroll y rebotes raros en iOS/Android */
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Encabezado fijo con efecto de vidrio esmerilado */
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 60px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+
+        /* Carrusel superior de días */
+        #carrusel-dias {
+            position: fixed;
+            top: 60px;
+            width: 100%;
+            display: flex;
+            overflow-x: auto;
+            gap: 12px;
+            padding: 15px 20px;
+            background: var(--bg-color);
+            z-index: 90;
+            box-sizing: border-box;
+            /* Ocultar barra de scroll en distintos navegadores */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        #carrusel-dias::-webkit-scrollbar {
+            display: none;
+        }
+
+        .burbuja-dia {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: capitalize;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .burbuja-dia.activa {
+            background: var(--neon-cyan);
+            color: #000;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+        }
+
+        /* Contenedor principal ajustado para dar espacio al carrusel */
+        main {
+            padding: 130px 20px 90px 20px;
+            overflow-x: hidden; /* Clave para que la animación no rompa el ancho de pantalla */
+        }
+
+        /* Clase para la animación fluida de las tarjetas */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+
+        /* Estados de animación para la tarjeta */
+        .card.saliendo-izq { transform: translateX(-100%); opacity: 0; }
+        .card.saliendo-der { transform: translateX(100%); opacity: 0; }
+        .card.entrando-izq { transform: translateX(-100%); opacity: 0; }
+        .card.entrando-der { transform: translateX(100%); opacity: 0; }
+
+        /* Tarjetas de contenido */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--neon-cyan);
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+        }
+
+        .seccion { margin-top: 15px; }
+        
+        .etiqueta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        /* Skeleton Loaders (Efecto animado mientras baja los datos de Google Sheets) */
+        .skeleton {
+            background: linear-gradient(90deg, #222 25%, #333 50%, #222 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+        .skeleton.title { width: 50%; height: 24px; }
+        .skeleton.text { width: 100%; height: 60px; }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Barra de navegación inferior (Bottom Nav) */
+        nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 70px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
+        }
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+            fill: currentColor;
+        }
+
+        /* Bottom Sheet (Panel flotante del Chat) */
+        #chat-sheet {
+            position: fixed;
+            bottom: -100%; /* Oculto por defecto abajo de la pantalla */
+            left: 0;
+            width: 100%;
+            height: 75vh;
+            background: #1a1a1a;
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            box-shadow: 0 -5px 40px rgba(0,0,0,0.6);
+            z-index: 200;
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-sheet.open {
+            bottom: 0;
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--neon-cyan);
+            font-size: 1.8rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .chat-body {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            gap: 10px;
+            background: #121212;
+        }
+
+        .chat-input-area input {
+            flex-grow: 1;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 20px;
+            padding: 12px 15px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--neon-cyan);
+        }
+
+        .chat-input-area button {
+            background: var(--neon-cyan);
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Fondo oscuro al abrir el chat */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 150;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #overlay.active { display: block; opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <!-- Header Superior -->
+    <header>
+        <h1><span style="color:var(--text-main);">GYM</span><span style="color:var(--neon-cyan);">TRACK</span></h1>
+    </header>
+
+    <!-- Carrusel de días -->
+    <div id="carrusel-dias">
+        <!-- Las burbujas se inyectarán acá con JS -->
+    </div>
+
+    <!-- Contenido Principal -->
+    <main id="pantalla-plan">
+        <div class="card" id="tarjeta-principal">
+            <h2 id="dia-titulo">Cargando Hoy...</h2>
+            
+            <!-- Skeleton Loaders -->
+            <div id="loaders">
+                <div class="skeleton title"></div>
+                <div class="skeleton text"></div>
+                <br>
+                <div class="skeleton title"></div>
+                <div class="skeleton text"></div>
+            </div>
+
+            <!-- Contenedor de datos (Oculto hasta la Fase 4) -->
+            <div id="datos-reales" style="display: none;">
+                <div class="seccion">
+                    <div class="etiqueta">🏋️ Entrenamiento</div>
+                    <div id="texto-entrenamiento"></div>
+                </div>
+                <div class="seccion">
+                    <div class="etiqueta">🥩 Nutrición</div>
+                    <div id="texto-dieta"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Tarjeta de Perfil (Oculta por defecto) -->
+        <div class="card" id="tarjeta-perfil" style="display: none;">
+            <h2>👤 Mi Perfil Biométrico</h2>
+            <div id="perfil-datos-reales">
+                <!-- Los datos se inyectarán acá con JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Barra de Navegación Inferior -->
+    <nav>
+        <div class="nav-item active" id="btn-nav-hoy" onclick="cambiarVista('hoy')">
+            <!-- Icono de Calendario/Plan -->
+            <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z"/></svg>
+            Hoy
+        </div>
+        <div class="nav-item" id="btn-nav-perfil" onclick="cambiarVista('perfil')">
+            <!-- Icono de Usuario/Perfil -->
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            Perfil
+        </div>
+        <div class="nav-item" onclick="abrirChat()">
+            <!-- Icono de Chat/IA -->
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+            Asistente
+        </div>
+    </nav>
+
+    <!-- Fondo desenfocado para el chat -->
+    <div id="overlay" onclick="cerrarChat()"></div>
+
+    <!-- Panel de Chat Desplegable (Bottom Sheet) -->
+    <div id="chat-sheet">
+        <div class="chat-header">
+            <span>Asistente IA</span>
+            <button class="close-btn" onclick="cerrarChat()">&times;</button>
+        </div>
+        <div class="chat-body" id="chat-mensajes">
+            <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 20px;">
+                Conectando con Gemini...<br>Conozco tu rutina y medidas de hoy. ¿Qué necesitas?
+            </p>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input-text" placeholder="Consultar reemplazo de comida..." onkeypress="if(event.key === 'Enter') enviarMensaje()">
+            <button onclick="enviarMensaje()">➤</button>
+        </div>
+    </div>
+
+    <!-- Funciones base para probar la animación del Chat -->
+    <script>
+        // --- 1. CONFIGURACIÓN ---
+        // ¡IMPORTANTE! Pegá acá adentro de las comillas la URL que te dio Google Apps Script en la Fase 2
+        const API_URL = 'https://script.google.com/macros/s/AKfycby6lGq8fM58ba27w-irwB0aZQVzTELOMuAfoS6gKRDWGjz9l8ZffS2X9-FH-bZEmyGh/exec'; 
+        
+        let planSemanal = {};
+        let perfilDatos = {}; // Nueva variable para guardar el perfil
+        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+        const hoy = diasSemana[new Date().getDay()];
+
+        // --- 2. LÓGICA DE CARGA DE DATOS DUAL ---
+        async function cargarDatos() {
+            try {
+                // Llama a tu Google Sheet (ahora trae el paquete maestro)
+                const respuesta = await fetch(API_URL);
+                const datosMaestros = await respuesta.json();
+                
+                // Separamos los datos
+                planSemanal = datosMaestros.plan;
+                perfilDatos = datosMaestros.perfil;
+                
+                // Oculta los loaders animados y muestra los datos reales
+                document.getElementById('loaders').style.display = 'none';
+                document.getElementById('datos-reales').style.display = 'block';
+                
+                // Renderizar los datos del perfil en el HTML
+                renderizarPerfil();
+                
+                // Muestra la rutina de hoy por defecto
+                mostrarDia(hoy);
+            } catch (error) {
+                console.error("Error cargando los datos:", error);
+                document.getElementById('dia-titulo').innerText = "Error de conexión ⚠️";
+                document.getElementById('loaders').style.display = 'none';
+            }
+        }
+
+        // Función para inyectar las métricas de perfil en la tarjeta oculta
+        function renderizarPerfil() {
+            const contenedorPerfil = document.getElementById('perfil-datos-reales');
+            contenedorPerfil.innerHTML = ''; // Limpiar antes de inyectar
+            
+            for (const [atributo, valor] of Object.entries(perfilDatos)) {
+                // Reemplazamos los guiones bajos por espacios para que se lea lindo
+                const etiquetaLimpia = atributo.replace(/_/g, ' '); 
+                const bloqueHtml = `
+                    <div class="seccion">
+                        <div class="etiqueta">${etiquetaLimpia}</div>
+                        <div style="font-size: 1rem; color: #ddd;">${valor}</div>
+                    </div>
+                `;
+                contenedorPerfil.innerHTML += bloqueHtml;
+            }
+        }
+
+        // Función visual para alternar entre "Hoy" y "Perfil"
+        function cambiarVista(vista) {
+            // Retroalimentación háptica sutil
+            if (navigator.vibrate) navigator.vibrate(30);
+
+            const tarjetaPrincipal = document.getElementById('tarjeta-principal');
+            const tarjetaPerfil = document.getElementById('tarjeta-perfil');
+            const carruselDias = document.getElementById('carrusel-dias');
+            
+            const btnHoy = document.getElementById('btn-nav-hoy');
+            const btnPerfil = document.getElementById('btn-nav-perfil');
+
+            if (vista === 'hoy') {
+                btnPerfil.classList.remove('active');
+                btnHoy.classList.add('active');
+                
+                tarjetaPerfil.style.display = 'none';
+                carruselDias.style.display = 'flex'; // Mostramos carrusel
+                tarjetaPrincipal.style.display = 'block';
+            } else if (vista === 'perfil') {
+                btnHoy.classList.remove('active');
+                btnPerfil.classList.add('active');
+                
+                carruselDias.style.display = 'none'; // Ocultamos carrusel
+                tarjetaPrincipal.style.display = 'none';
+                tarjetaPerfil.style.display = 'block';
+            }
+        }
+
+        // --- 3. ANIMACIONES Y RENDERIZADO DE LA INTERFAZ ---
+        let diaActualRenderizado = hoy;
+
+        function inicializarCarrusel() {
+            const contenedorCarrusel = document.getElementById('carrusel-dias');
+            
+            // Reordenamos el array para que empiece el lunes (opcional, pero más intuitivo en el gym)
+            const diasOrdenados = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+            
+            diasOrdenados.forEach(dia => {
+                const burbuja = document.createElement('div');
+                burbuja.className = 'burbuja-dia';
+                burbuja.id = 'burbuja-' + dia;
+                burbuja.innerText = dia;
+                
+                burbuja.onclick = () => cambiarDiaConAnimacion(dia);
+                contenedorCarrusel.appendChild(burbuja);
+            });
+        }
+
+        function cambiarDiaConAnimacion(nuevoDia) {
+            if (nuevoDia === diaActualRenderizado) return; // Si tocas el mismo día, no hace nada
+
+            // Retroalimentación háptica sutil
+            if (navigator.vibrate) navigator.vibrate(30);
+
+            // Actualizar estilo visual de las burbujas
+            document.querySelectorAll('.burbuja-dia').forEach(b => b.classList.remove('activa'));
+            const burbujaActiva = document.getElementById('burbuja-' + nuevoDia);
+            if (burbujaActiva) {
+                burbujaActiva.classList.add('activa');
+                // Auto-scroll para centrar la burbuja activa en la pantalla
+                burbujaActiva.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+
+            const tarjeta = document.getElementById('tarjeta-principal');
+            
+            // Calcular dirección de la animación basándose en los índices
+            const indiceActual = diasSemana.indexOf(diaActualRenderizado);
+            const indiceNuevo = diasSemana.indexOf(nuevoDia);
+            
+            // Si el nuevo día está "después", la tarjeta vieja sale a la izq y la nueva entra por der
+            const claseSalida = indiceNuevo > indiceActual ? 'saliendo-izq' : 'saliendo-der';
+            const claseEntrada = indiceNuevo > indiceActual ? 'entrando-der' : 'entrando-izq';
+
+            // 1. Ejecutamos la salida de la tarjeta actual
+            tarjeta.classList.add(claseSalida);
+
+            // 2. Esperamos a que termine de salir (300ms) para cambiar los textos
+            setTimeout(() => {
+                // Cambiar el título y los textos
+                document.getElementById('dia-titulo').innerText = "Rutina del " + nuevoDia;
+                if(planSemanal[nuevoDia]) {
+                    document.getElementById('texto-entrenamiento').innerText = planSemanal[nuevoDia].entrenamiento;
+                    document.getElementById('texto-dieta').innerText = planSemanal[nuevoDia].dieta;
+                } else {
+                    document.getElementById('texto-entrenamiento').innerText = "Día libre o sin datos.";
+                    document.getElementById('texto-dieta').innerText = "Día libre o sin datos.";
+                }
+
+                // 3. Preparamos la tarjeta en su punto de inicio opuesto para entrar
+                tarjeta.classList.remove(claseSalida);
+                tarjeta.classList.add(claseEntrada);
+
+                // 4. Forzamos un reflow del navegador (obligatorio para que la animación de entrada funcione)
+                void tarjeta.offsetWidth;
+
+                // 5. Quitamos la clase de entrada para que la tarjeta vuelva a su posición original visible
+                tarjeta.classList.remove(claseEntrada);
+                
+                diaActualRenderizado = nuevoDia;
+            }, 300); // 300ms coincide con la transición CSS
+        }
+
+        // Esta función se llama inicialmente para renderizar sin animaciones al cargar la página
+        function mostrarDia(dia) {
+            inicializarCarrusel();
+            
+            const burbujaHoy = document.getElementById('burbuja-' + dia);
+            if (burbujaHoy) {
+                burbujaHoy.classList.add('activa');
+                // Darle un milisegundo al navegador para pintar antes de hacer el scroll
+                setTimeout(() => burbujaHoy.scrollIntoView({ inline: 'center' }), 100);
+            }
+
+            document.getElementById('dia-titulo').innerText = "Rutina del " + dia;
+            if(planSemanal[dia]) {
+                document.getElementById('texto-entrenamiento').innerText = planSemanal[dia].entrenamiento;
+                document.getElementById('texto-dieta').innerText = planSemanal[dia].dieta;
+            }
+        }
+
+        // --- 4. LÓGICA DEL CHAT E IA ---
+        const chatSheet = document.getElementById('chat-sheet');
+        const overlay = document.getElementById('overlay');
+        const chatMensajes = document.getElementById('chat-mensajes');
+        const chatInput = document.getElementById('chat-input-text'); // Necesitamos agregarle este ID al input HTML
+
+        function abrirChat() {
+            chatSheet.classList.add('open');
+            overlay.classList.add('active');
+            if (navigator.vibrate) navigator.vibrate(50); // Vibración sutil
+        }
+
+        function cerrarChat() {
+            chatSheet.classList.remove('open');
+            overlay.classList.remove('active');
+        }
+
+        // Esta función empaqueta tu pregunta junto con tus datos del día
+        async function enviarMensaje() {
+            const pregunta = chatInput.value.trim();
+            if (!pregunta) return;
+
+            // 1. Mostrar tu mensaje en la pantalla
+            agregarBurbuja(pregunta, 'usuario');
+            chatInput.value = ''; // Limpiar la barra
+
+            // 2. Empaquetar el "Expediente Secreto" para Gemini
+            const expedienteSecreto = `
+                CONTRATO DE IA - CONTEXTO DEL USUARIO ACTUAL:
+                Día actual de la consulta: ${hoy}.
+                --- DATOS BIOMÉTRICOS Y OBJETIVOS ---
+                ${JSON.stringify(perfilDatos, null, 2)}
+                --- ENTRENAMIENTO Y DIETA DE HOY ---
+                Entrenamiento asignado hoy: ${planSemanal[hoy]?.entrenamiento || 'Día libre'}. 
+                Dieta/Suplementación de hoy: ${planSemanal[hoy]?.dieta || 'Libre'}.
+            `;
+            
+            // Este objeto es el que mandaremos a Google Apps Script en la última fase
+            const paqueteParaIA = {
+                contexto: expedienteSecreto,
+                mensaje: pregunta
+            };
+
+            // 3. Mostrar estado "Escribiendo..."
+            const idTyping = agregarBurbuja("Analizando tus macros...", 'ia', true);
+
+            // 4. Conexión Real con Gemini a través de Google Apps Script
+            try {
+                const respuesta = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(paqueteParaIA) // Enviamos pregunta + datos biométricos
+                    // NOTA: No usamos 'headers: { "Content-Type": "application/json" }' 
+                    // porque Google Apps Script requiere que las peticiones POST desde el navegador 
+                    // se envíen como texto plano para evitar el bloqueo estricto de CORS.
+                });
+                
+                const datosRespuesta = await respuesta.json();
+                
+                // Borramos el mensaje de "Escribiendo..."
+                document.getElementById(idTyping).remove();
+                
+                // Dibujamos la respuesta real de Gemini
+                agregarBurbuja(datosRespuesta.respuesta, 'ia');
+                
+                // Vibración de victoria cuando llega la respuesta
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]); 
+                
+            } catch (error) {
+                console.error("Error en el chat:", error);
+                document.getElementById(idTyping).remove();
+                agregarBurbuja("Che, hubo un problema de conexión con el cerebro. Revisá tu señal o la URL del puente.", 'ia');
+            }
+        }
+
+        // Función para dibujar los mensajes en el chat
+        function agregarBurbuja(texto, remitente, esTyping = false) {
+            const id = 'msg-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.style.margin = "10px 0";
+            div.style.padding = "12px 16px";
+            div.style.borderRadius = "16px";
+            div.style.maxWidth = "85%";
+            div.style.lineHeight = "1.4";
+            div.style.fontSize = "0.95rem";
+            
+            if (remitente === 'usuario') {
+                div.style.background = "var(--neon-cyan)";
+                div.style.color = "#000";
+                div.style.marginLeft = "auto";
+                div.style.borderBottomRightRadius = "4px";
+            } else {
+                div.style.background = "#2a2a2a";
+                div.style.color = "#fff";
+                div.style.marginRight = "auto";
+                div.style.borderBottomLeftRadius = "4px";
+                if (esTyping) div.style.fontStyle = "italic";
+            }
+            
+            div.innerText = texto;
+            chatMensajes.appendChild(div);
+            
+            // Hacer scroll automático hacia abajo
+            chatMensajes.scrollTop = chatMensajes.scrollHeight;
+            return id;
+        }
+
+        // Ejecutar carga al abrir la app
+        cargarDatos();
+    </script>   
+</body>
+</html>
