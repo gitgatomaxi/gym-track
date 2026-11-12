@@ -700,17 +700,8 @@
                 ancho_px: window.innerWidth
             };
 
-            // 3. Empaquetar el "Expediente Secreto" con los 7 DÍAS COMPLETOS y el Perfil
-            const expedienteSecreto = `
-                --- DATOS BIOMÉTRICOS Y PERFIL DEL USUARIO ---
-                ${JSON.stringify(perfilDatos, null, 2)}
-
-                --- PLANIFICACIÓN SEMANAL COMPLETA (LUNES A DOMINGO) ---
-                ${JSON.stringify(planSemanal, null, 2)}
-
-                --- DÍA QUE EL USUARIO ESTÁ MIRANDO EN PANTALLA AHORA MISMO ---
-                ${diaActualRenderizado}
-            `;
+            // 3. Empaquetar el "Expediente Secreto" comprimido para ahorrar un 25% de tokens
+            const expedienteSecreto = `PERFIL:${JSON.stringify(perfilDatos)}\nPLAN_7_DIAS:${JSON.stringify(planSemanal)}\nDIA_EN_PANTALLA:${diaActualRenderizado}`;
             
             // Este objeto viaja a Google Apps Script (ahora incluye la memoria temporal)
             const paqueteParaIA = {
@@ -741,9 +732,24 @@
                 // Dibujamos la respuesta real de Gemini
                 agregarBurbuja(datosRespuesta.respuesta, 'ia');
 
-                // Guardamos tu pregunta y la respuesta de la IA en la memoria temporal
-                historialChat.push({ rol: "Usuario", texto: pregunta });
-                historialChat.push({ rol: "GymTrack", texto: datosRespuesta.respuesta });
+                // Si hubo un error de API/cuota, devolvemos tu pregunta a la barra para no perderla
+                if (datosRespuesta.respuesta.startsWith("Error")) {
+                    chatInput.value = pregunta;
+                } else {
+                    // 1. Guardamos el 100% de tu pregunta intacta
+                    historialChat.push({ rol: "Usuario", texto: pregunta });
+                    
+                    // 2. Si la respuesta de la IA fue gigante (>350 letras), la recortamos en la memoria para ahorrar tokens
+                    const respuestaParaMemoria = datosRespuesta.respuesta.length > 350 
+                        ? datosRespuesta.respuesta.substring(0, 350) + "... [respuesta extensa resumida en memoria]" 
+                        : datosRespuesta.respuesta;
+                    historialChat.push({ rol: "GymTrack", texto: respuestaParaMemoria });
+
+                    // 3. Ventana inteligente: mantenemos solo los últimos 12 mensajes (6 idas y vueltas completas)
+                    if (historialChat.length > 12) {
+                        historialChat = historialChat.slice(-12);
+                    }
+                }
                 
                 // Vibración de victoria cuando llega la respuesta
                 if (navigator.vibrate) navigator.vibrate([30, 50, 30]); 
@@ -751,7 +757,9 @@
             } catch (error) {
                 console.error("Error en el chat:", error);
                 document.getElementById(idTyping).remove();
-                agregarBurbuja("Che, hubo un problema de conexión con el cerebro. Revisá tu señal o la URL del puente.", 'ia');
+                // BLINDAJE WI-FI: Devolvemos el texto a la caja para que no tengas que volver a escribirlo ni dictarlo
+                chatInput.value = pregunta;
+                agregarBurbuja("⚠️ Se cortó la señal. Tu mensaje quedó guardado en la barra de abajo para que le des enviar de nuevo apenas vuelva el Wi-Fi.", 'ia');
             }
         }
 
@@ -781,7 +789,16 @@
                 if (esTyping) div.style.fontStyle = "italic";
             }
             
-            div.innerText = texto;
+            if (remitente === 'ia' && !esTyping) {
+                // 1. Quitar los signos # sueltos al inicio de los renglones
+                let textoFormateado = texto.replace(/^#+\s*/gm, '');
+                // 2. Pintar todo lo que esté entre **dobles asteriscos** en color Cian Neón brillante
+                textoFormateado = textoFormateado.replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--neon-cyan); text-shadow: 0 0 6px rgba(0,255,204,0.35);">$1</strong>');
+                // 3. Transformar los "Enters" en saltos de línea reales (<br>)
+                div.innerHTML = textoFormateado.replace(/\n/g, '<br>');
+            } else {
+                div.innerText = texto;
+            }
             chatMensajes.appendChild(div);
             
             // Hacer scroll automático hacia abajo
