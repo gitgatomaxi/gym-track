@@ -296,8 +296,8 @@
         }
         #overlay.active { display: block; opacity: 1; }
 
-        /* --- MODO APPLE WATCH SERIES 7 (Pantallas <= 250px) --- */
-        @media (max-width: 250px) {
+        /* --- MODO APPLE WATCH SERIES 7 (Pantallas <= 330px) --- */
+        @media (max-width: 330px) {
             header {
                 height: 34px;
             }
@@ -668,8 +668,8 @@
             agregarBurbuja(pregunta, 'usuario');
             chatInput.value = ''; // Limpiar la barra
 
-            // 2. Detectar si estás desde el Apple Watch (pantalla <= 250px) o desde Celular/PC
-            const esReloj = window.innerWidth <= 250;
+            // 2. Detectar si estás desde el Apple Watch (pantalla <= 330px) o desde Celular/PC
+            const esReloj = window.innerWidth <= 330;
             const infoDispositivo = {
                 tipo: esReloj ? "Apple Watch" : "Celular / PC",
                 interfaz: esReloj ? "pantalla pequeña (modo ultra compacto)" : "pantalla estándar",
