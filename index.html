@@ -299,81 +299,105 @@
         /* --- MODO APPLE WATCH SERIES 7 (Pantallas <= 330px) --- */
         @media (max-width: 330px) {
             header {
-                height: 34px;
+                height: 40px;
             }
             header h1 {
-                font-size: 0.95rem;
+                font-size: 1.15rem;
             }
             #carrusel-dias {
-                top: 34px;
-                padding: 8px 6px;
-                gap: 6px;
+                top: 40px;
+                padding: 10px 12px;
+                gap: 10px;
             }
+            /* Burbujas de los días más grandes para compensar el zoom del reloj */
             .burbuja-dia {
-                padding: 8px 12px;
-                font-size: 0.8rem;
+                padding: 11px 18px;
+                font-size: 1.1rem;
+                border-radius: 22px;
             }
             main {
-                /* Aprovecha el 100% del ancho del reloj quitando márgenes laterales */
-                padding: 82px 4px 62px 4px;
+                padding: 100px 6px 75px 6px;
             }
             .card {
-                padding: 12px 10px;
-                border-radius: 12px;
-                margin-bottom: 10px;
+                padding: 14px 12px;
+                border-radius: 14px;
+                margin-bottom: 12px;
             }
             .card h2 {
-                font-size: 0.95rem;
-                padding-bottom: 6px;
+                font-size: 1.15rem;
+                padding-bottom: 8px;
+            }
+            #texto-entrenamiento, #texto-dieta {
+                font-size: 1.05rem;
+                line-height: 1.45;
             }
             nav {
-                height: 54px;
+                height: 64px;
             }
             .nav-item {
-                font-size: 0.7rem;
-                padding: 4px 8px; /* Zona táctil más cómoda */
+                font-size: 0.85rem;
+                padding: 6px 10px;
             }
             .nav-item svg {
-                width: 20px;
-                height: 20px;
-                margin-bottom: 2px;
+                width: 24px;
+                height: 24px;
+                margin-bottom: 3px;
             }
-            /* Chat a pantalla completa en el reloj para no desperdiciar espacio */
+            /* Forzar que el chat ocupe el 100% real de alto y ancho en watchOS */
             #chat-sheet {
+                width: 100%;
+                height: 100%;
+                max-height: 100%;
+                border-radius: 0;
+                box-sizing: border-box;
+            }
+            #chat-sheet.open {
+                top: 0;
+                bottom: 0;
                 height: 100vh;
-                border-top-left-radius: 0;
-                border-top-right-radius: 0;
+                height: 100dvh;
             }
             .chat-header {
-                padding: 8px 10px;
-                font-size: 0.9rem;
+                padding: 12px 16px;
+                font-size: 1.1rem;
+                box-sizing: border-box;
             }
             .close-btn {
-                font-size: 2rem;
-                padding: 2px 10px; /* Botón grande para cerrar fácil con el dedo */
+                font-size: 2.2rem;
+                padding: 2px 12px;
             }
             .chat-body {
-                padding: 8px 6px;
+                padding: 10px 8px;
+                box-sizing: border-box;
             }
             .burbuja-chat {
-                max-width: 96% !important;
-                padding: 10px 12px !important;
-                font-size: 0.88rem !important;
-                margin: 6px 0 !important;
+                max-width: 94% !important;
+                padding: 12px 14px !important;
+                font-size: 1.05rem !important;
+                margin: 8px 0 !important;
+                box-sizing: border-box;
             }
+            /* Margen lateral e inferior extra para esquivar la curva física del reloj */
             .chat-input-area {
-                padding: 6px;
-                gap: 6px;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 10px 14px 16px 14px;
+                gap: 8px;
+                align-items: center;
             }
+            /* min-width: 0 evita que la caja de texto empuje al botón fuera de pantalla */
             .chat-input-area input {
-                padding: 10px 12px;
-                font-size: 0.85rem;
+                min-width: 0;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px 14px;
+                font-size: 1.05rem;
             }
             .chat-input-area button {
-                width: 40px;
-                height: 40px;
+                width: 48px;
+                height: 48px;
                 flex-shrink: 0;
-                font-size: 1rem;
+                font-size: 1.3rem;
             }
         }
     </style>
