@@ -667,6 +667,11 @@
 
         // --- 4. LÓGICA DEL CHAT E IA ---
         let historialChat = []; // Memoria temporal de la conversación actual
+        let altoSinTeclado = window.innerHeight; // Guarda el alto real al abrir la app (con teclado cerrado)
+        window.addEventListener('resize', () => {
+            // Si el teclado se cierra y la pantalla vuelve a estirarse, guarda siempre la altura máxima real
+            if (window.innerHeight > altoSinTeclado) altoSinTeclado = window.innerHeight;
+        });
         const chatSheet = document.getElementById('chat-sheet');
         const overlay = document.getElementById('overlay');
         const chatMensajes = document.getElementById('chat-mensajes');
@@ -692,13 +697,13 @@
             agregarBurbuja(pregunta, 'usuario');
             chatInput.value = ''; // Limpiar la barra
 
-            // 2. Detectar si estás desde el Apple Watch (Ancho <= 330px Y Alto <= 520px) o desde Celular/PC
-            const esReloj = window.innerWidth <= 330 && window.innerHeight <= 520 && window.screen.height <= 520;
+            // 2. Detectar si estás desde el Apple Watch (Ancho <= 330px Y Alto sin teclado <= 400px)
+            const esReloj = window.innerWidth <= 330 && altoSinTeclado <= 400;
             const infoDispositivo = {
                 tipo: esReloj ? "Apple Watch" : "Celular / PC",
                 interfaz: esReloj ? "pantalla pequeña (modo ultra compacto)" : "pantalla estándar",
                 ancho_px: window.innerWidth,
-                alto_px: window.innerHeight
+                alto_px: altoSinTeclado
             };
 
             // 3. Empaquetar el "Expediente Secreto" comprimido para ahorrar un 25% de tokens
