@@ -161,11 +161,11 @@
             color: #ff6b6b;
         }
         @keyframes pulsoNeon {
-            0%, 100% { box-shadow: 0 0 8px rgba(0,255,204,0.3); border-color: var(--glass-border); }
-            50% { box-shadow: 0 0 28px rgba(0,255,204,0.95); border-color: var(--neon-cyan); }
+            0%, 100% { box-shadow: 0 0 6px rgba(0,255,204,0.3), inset 0 0 6px rgba(0,255,204,0.2); border-color: var(--glass-border); }
+            50% { box-shadow: 0 0 20px rgba(0,255,204,1), inset 0 0 18px rgba(0,255,204,0.8); border-color: var(--neon-cyan); }
         }
         .alerta-neon {
-            animation: pulsoNeon 0.6s infinite;
+            animation: pulsoNeon 0.55s infinite;
         }
 
         /* Contenedor principal ajustado para dar espacio al carrusel */
@@ -394,7 +394,7 @@
                 border-radius: 22px;
             }
             main {
-                padding: 100px 6px 75px 6px;
+                padding: 100px 13px 75px 13px;
             }
             .card {
                 padding: 14px 12px;
@@ -798,14 +798,43 @@
         let serieActual = 0;
         let intervaloTimer = null;
         let audioCtx = null;
+        let nodoSilencioso = null;
 
-        function desbloquearAudio() {
+        function desbloquearAudio(hacerPipInicial = false) {
             try {
+                if (navigator.audioSession) {
+                    navigator.audioSession.type = 'playback';
+                }
                 if (!audioCtx) {
                     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                     if (AudioContextClass) audioCtx = new AudioContextClass();
                 }
-                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                if (audioCtx && hacerPipInicial) {
+                    // 1. "Pip" corto al tocar el botón para confirmar inicio y destrabar el parlante
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1050, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 0.1);
+
+                    // 2. Mantener el canal abierto en silencio para que watchOS/iOS no lo cierre antes de 00:00
+                    if (nodoSilencioso) { try { nodoSilencioso.stop(); } catch (e) {} }
+                    const oscVivo = audioCtx.createOscillator();
+                    const gainVivo = audioCtx.createGain();
+                    gainVivo.gain.setValueAtTime(0.00001, audioCtx.currentTime);
+                    oscVivo.connect(gainVivo);
+                    gainVivo.connect(audioCtx.destination);
+                    oscVivo.start();
+                    nodoSilencioso = oscVivo;
+                }
             } catch (e) {}
         }
 
@@ -814,20 +843,23 @@
             if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 450]);
             // 2. Triple pitido deportivo ("Beep-Beep-Beep") para iPhone y Apple Watch
             try {
-                desbloquearAudio();
+                desbloquearAudio(false);
                 if (!audioCtx) return;
                 [0, 0.22, 0.44].forEach(delay => {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(880, audioCtx.currentTime + delay);
-                    gain.gain.setValueAtTime(0.35, audioCtx.currentTime + delay);
+                    gain.gain.setValueAtTime(0.5, audioCtx.currentTime + delay);
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + 0.16);
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
                     osc.start(audioCtx.currentTime + delay);
                     osc.stop(audioCtx.currentTime + delay + 0.17);
                 });
+                if (nodoSilencioso) {
+                    setTimeout(() => { try { nodoSilencioso.stop(); nodoSilencioso = null; } catch (e) {} }, 700);
+                }
             } catch (e) {}
         }
 
@@ -840,7 +872,7 @@
         }
 
         function iniciarTimer(segundos) {
-            desbloquearAudio();
+            desbloquearAudio(true);
             if (navigator.vibrate) navigator.vibrate(40);
             finTimer = Date.now() + (segundos * 1000);
             serieActual++;
@@ -856,6 +888,7 @@
             if (navigator.vibrate) navigator.vibrate(30);
             finTimer = 0;
             if (intervaloTimer) clearInterval(intervaloTimer);
+            if (nodoSilencioso) { try { nodoSilencioso.stop(); nodoSilencioso = null; } catch (e) {} }
             document.getElementById('reloj-display').innerText = "00:00";
             document.getElementById('tarjeta-principal').classList.remove('alerta-neon');
             const bTimer = document.getElementById('burbuja-timer');
