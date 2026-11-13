@@ -90,6 +90,84 @@
             box-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
         }
 
+        /* Burbuja del temporizador clavada fija a la izquierda de Lunes */
+        #burbuja-timer {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            flex-shrink: 0;
+            background: #181818;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: -20px 0 0 var(--bg-color), 8px 0 12px var(--bg-color);
+        }
+        #burbuja-timer.activa {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: -20px 0 0 var(--bg-color), 8px 0 12px var(--bg-color), 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        /* Consola del Temporizador y Contador de Series */
+        .timer-reloj {
+            font-size: 2.8rem;
+            font-weight: 800;
+            text-align: center;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.35);
+            margin: 6px 0 10px 0;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 2px;
+        }
+        .serie-badge {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--neon-cyan);
+            color: #fff;
+            border-radius: 12px;
+            padding: 10px 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.05rem;
+            margin-bottom: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .serie-badge:active {
+            transform: scale(0.97);
+            background: rgba(0, 255, 204, 0.25);
+        }
+        .timer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .timer-btn {
+            background: #252525;
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            border-radius: 12px;
+            padding: 12px 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+        .timer-btn:active {
+            background: var(--neon-cyan);
+            color: #000;
+        }
+        .timer-btn.stop {
+            background: rgba(255, 70, 70, 0.15);
+            border-color: rgba(255, 70, 70, 0.4);
+            color: #ff6b6b;
+        }
+        @keyframes pulsoNeon {
+            0%, 100% { box-shadow: 0 0 8px rgba(0,255,204,0.3); border-color: var(--glass-border); }
+            50% { box-shadow: 0 0 28px rgba(0,255,204,0.95); border-color: var(--neon-cyan); }
+        }
+        .alerta-neon {
+            animation: pulsoNeon 0.6s infinite;
+        }
+
         /* Contenedor principal ajustado para dar espacio al carrusel */
         main {
             padding: 130px 20px 90px 20px;
@@ -439,6 +517,25 @@
                     <div id="texto-dieta"></div>
                 </div>
             </div>
+
+            <!-- Consola del Temporizador y Series (Oculta hasta tocar la burbuja ⏱️) -->
+            <div id="consola-timer" style="display: none;">
+                <div class="timer-reloj" id="reloj-display">00:00</div>
+                <div class="serie-badge" onclick="reiniciarSeries()">
+                    🔥 Serie actual: <span id="num-serie" style="color: var(--neon-cyan); font-size: 1.2rem;">0</span>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 3px;">
+                        (Tocá acá al cambiar de ejercicio para volver a 0)
+                    </div>
+                </div>
+                <div class="timer-grid">
+                    <button class="timer-btn" onclick="iniciarTimer(60)">60s</button>
+                    <button class="timer-btn" onclick="iniciarTimer(90)">90s</button>
+                    <button class="timer-btn" onclick="iniciarTimer(120)">2m</button>
+                    <button class="timer-btn" onclick="iniciarTimer(180)">3m</button>
+                    <button class="timer-btn" onclick="iniciarTimer(240)">4m</button>
+                    <button class="timer-btn stop" onclick="detenerTimer()">⏹️ 00:00</button>
+                </div>
+            </div>
         </div>
         <!-- Tarjeta de Perfil (Oculta por defecto) -->
         <div class="card" id="tarjeta-perfil" style="display: none;">
@@ -578,8 +675,17 @@
 
         function inicializarCarrusel() {
             const contenedorCarrusel = document.getElementById('carrusel-dias');
+            contenedorCarrusel.innerHTML = '';
+
+            // 1. Crear primero la burbuja fija del Temporizador a la izquierda de Lunes
+            const burbujaTimer = document.createElement('div');
+            burbujaTimer.className = 'burbuja-dia';
+            burbujaTimer.id = 'burbuja-timer';
+            burbujaTimer.innerText = '⏱️';
+            burbujaTimer.onclick = () => cambiarDiaConAnimacion('timer');
+            contenedorCarrusel.appendChild(burbujaTimer);
             
-            // Reordenamos el array para que empiece el lunes (opcional, pero más intuitivo en el gym)
+            // 2. Reordenamos el array para que empiece el lunes
             const diasOrdenados = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
             
             diasOrdenados.forEach(dia => {
@@ -610,27 +716,38 @@
 
             const tarjeta = document.getElementById('tarjeta-principal');
             
-            // Calcular dirección de la animación basándose en los índices
-            const indiceActual = diasSemana.indexOf(diaActualRenderizado);
-            const indiceNuevo = diasSemana.indexOf(nuevoDia);
+            // Calcular dirección de la animación ('timer' está a la izquierda de 'lunes')
+            const ordenCarrusel = ['timer', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+            const indiceActual = ordenCarrusel.indexOf(diaActualRenderizado);
+            const indiceNuevo = ordenCarrusel.indexOf(nuevoDia);
             
-            // Si el nuevo día está "después", la tarjeta vieja sale a la izq y la nueva entra por der
+            // Si el nuevo elemento está a la derecha, sale a la izq y entra por der (y viceversa)
             const claseSalida = indiceNuevo > indiceActual ? 'saliendo-izq' : 'saliendo-der';
             const claseEntrada = indiceNuevo > indiceActual ? 'entrando-der' : 'entrando-izq';
 
             // 1. Ejecutamos la salida de la tarjeta actual
             tarjeta.classList.add(claseSalida);
 
-            // 2. Esperamos a que termine de salir (300ms) para cambiar los textos
+            // 2. Esperamos a que termine de salir (300ms) para intercambiar la vista
             setTimeout(() => {
-                // Cambiar el título y los textos
-                document.getElementById('dia-titulo').innerText = "Rutina del " + nuevoDia;
-                if(planSemanal[nuevoDia]) {
-                    document.getElementById('texto-entrenamiento').innerText = planSemanal[nuevoDia].entrenamiento;
-                    document.getElementById('texto-dieta').innerText = planSemanal[nuevoDia].dieta;
+                const divDatosReales = document.getElementById('datos-reales');
+                const divConsolaTimer = document.getElementById('consola-timer');
+
+                if (nuevoDia === 'timer') {
+                    document.getElementById('dia-titulo').innerText = "⏱️ Descanso y Series";
+                    divDatosReales.style.display = 'none';
+                    divConsolaTimer.style.display = 'block';
                 } else {
-                    document.getElementById('texto-entrenamiento').innerText = "Día libre o sin datos.";
-                    document.getElementById('texto-dieta').innerText = "Día libre o sin datos.";
+                    divConsolaTimer.style.display = 'none';
+                    divDatosReales.style.display = 'block';
+                    document.getElementById('dia-titulo').innerText = "Rutina del " + nuevoDia;
+                    if(planSemanal[nuevoDia]) {
+                        document.getElementById('texto-entrenamiento').innerText = planSemanal[nuevoDia].entrenamiento;
+                        document.getElementById('texto-dieta').innerText = planSemanal[nuevoDia].dieta;
+                    } else {
+                        document.getElementById('texto-entrenamiento').innerText = "Día libre o sin datos.";
+                        document.getElementById('texto-dieta').innerText = "Día libre o sin datos.";
+                    }
                 }
 
                 // 3. Preparamos la tarjeta en su punto de inicio opuesto para entrar
@@ -665,13 +782,175 @@
             }
         }
 
-        // --- 4. LÓGICA DEL CHAT E IA ---
+        // --- 4. LÓGICA DEL CHAT, MEMORIA 4 HS Y TEMPORIZADOR ---
         let historialChat = []; // Memoria temporal de la conversación actual
+        let burbujasGuardadas = []; // Globos dibujados en pantalla (duran 4 horas)
+        let restaurandoMemoria = false;
+        const TIEMPO_EXPIRACION_MS = 4 * 60 * 60 * 1000; // 4 horas exactas
+
         let altoSinTeclado = window.innerHeight; // Guarda el alto real al abrir la app (con teclado cerrado)
         window.addEventListener('resize', () => {
-            // Si el teclado se cierra y la pantalla vuelve a estirarse, guarda siempre la altura máxima real
             if (window.innerHeight > altoSinTeclado) altoSinTeclado = window.innerHeight;
         });
+
+        // Variables del Temporizador y Series
+        let finTimer = 0;
+        let serieActual = 0;
+        let intervaloTimer = null;
+        let audioCtx = null;
+
+        function desbloquearAudio() {
+            try {
+                if (!audioCtx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                }
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) {}
+        }
+
+        function sonarAlarmaGym() {
+            // 1. Vibración física (en dispositivos compatibles como Android)
+            if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 450]);
+            // 2. Triple pitido deportivo ("Beep-Beep-Beep") para iPhone y Apple Watch
+            try {
+                desbloquearAudio();
+                if (!audioCtx) return;
+                [0, 0.22, 0.44].forEach(delay => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + delay);
+                    gain.gain.setValueAtTime(0.35, audioCtx.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + 0.16);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + delay);
+                    osc.stop(audioCtx.currentTime + delay + 0.17);
+                });
+            } catch (e) {}
+        }
+
+        function guardarEstadoTimer() {
+            localStorage.setItem('gymtrack_timer_v1', JSON.stringify({
+                finTimer: finTimer,
+                serieActual: serieActual,
+                timestamp: Date.now()
+            }));
+        }
+
+        function iniciarTimer(segundos) {
+            desbloquearAudio();
+            if (navigator.vibrate) navigator.vibrate(40);
+            finTimer = Date.now() + (segundos * 1000);
+            serieActual++;
+            document.getElementById('num-serie').innerText = serieActual;
+            document.getElementById('tarjeta-principal').classList.remove('alerta-neon');
+            guardarEstadoTimer();
+            actualizarRelojEnVivo();
+            if (intervaloTimer) clearInterval(intervaloTimer);
+            intervaloTimer = setInterval(actualizarRelojEnVivo, 250);
+        }
+
+        function detenerTimer() {
+            if (navigator.vibrate) navigator.vibrate(30);
+            finTimer = 0;
+            if (intervaloTimer) clearInterval(intervaloTimer);
+            document.getElementById('reloj-display').innerText = "00:00";
+            document.getElementById('tarjeta-principal').classList.remove('alerta-neon');
+            const bTimer = document.getElementById('burbuja-timer');
+            if (bTimer) bTimer.innerText = '⏱️';
+            guardarEstadoTimer();
+        }
+
+        function reiniciarSeries() {
+            if (navigator.vibrate) navigator.vibrate(50);
+            serieActual = 0;
+            document.getElementById('num-serie').innerText = "0";
+            guardarEstadoTimer();
+        }
+
+        function actualizarRelojEnVivo() {
+            const bTimer = document.getElementById('burbuja-timer');
+            const display = document.getElementById('reloj-display');
+            if (!finTimer) return;
+
+            const restantes = Math.ceil((finTimer - Date.now()) / 1000);
+            if (restantes > 0) {
+                const min = String(Math.floor(restantes / 60)).padStart(2, '0');
+                const seg = String(restantes % 60).padStart(2, '0');
+                const textoHora = `${min}:${seg}`;
+                if (display) display.innerText = textoHora;
+                if (bTimer) bTimer.innerText = `⏱️ ${min}:${seg}`;
+            } else {
+                // ¡Llegó a 00:00!
+                finTimer = 0;
+                if (intervaloTimer) clearInterval(intervaloTimer);
+                if (display) display.innerText = "¡A TIRAR! 🔥";
+                if (bTimer) bTimer.innerText = "⏱️ ¡YA!";
+                guardarEstadoTimer();
+                sonarAlarmaGym();
+                const tarjeta = document.getElementById('tarjeta-principal');
+                tarjeta.classList.add('alerta-neon');
+                setTimeout(() => {
+                    tarjeta.classList.remove('alerta-neon');
+                    if (bTimer && !finTimer) bTimer.innerText = '⏱️';
+                }, 4000);
+            }
+        }
+
+        function guardarSesionChat() {
+            localStorage.setItem('gymtrack_chat_v1', JSON.stringify({
+                timestamp: Date.now(),
+                historial: historialChat,
+                burbujas: burbujasGuardadas
+            }));
+        }
+
+        function limpiarChatCompleto() {
+            historialChat = [];
+            burbujasGuardadas = [];
+            localStorage.removeItem('gymtrack_chat_v1');
+            chatMensajes.innerHTML = '';
+            restaurandoMemoria = true;
+            agregarBurbuja("🧹 **Chat limpio.** Memoria de la sesión reiniciada desde cero.", 'ia');
+            restaurandoMemoria = false;
+        }
+
+        function restaurarSesionYTimer() {
+            // 1. Restaurar chat si tiene menos de 4 horas
+            try {
+                const chatGuardado = JSON.parse(localStorage.getItem('gymtrack_chat_v1') || 'null');
+                if (chatGuardado && (Date.now() - chatGuardado.timestamp) < TIEMPO_EXPIRACION_MS) {
+                    historialChat = chatGuardado.historial || [];
+                    burbujasGuardadas = chatGuardado.burbujas || [];
+                    if (burbujasGuardadas.length > 0) {
+                        chatMensajes.innerHTML = '';
+                        restaurandoMemoria = true;
+                        burbujasGuardadas.forEach(b => agregarBurbuja(b.texto, b.remitente));
+                        restaurandoMemoria = false;
+                    }
+                } else {
+                    localStorage.removeItem('gymtrack_chat_v1');
+                }
+            } catch (e) {}
+
+            // 2. Restaurar Temporizador y Series si tienen menos de 4 horas
+            try {
+                const timerGuardado = JSON.parse(localStorage.getItem('gymtrack_timer_v1') || 'null');
+                if (timerGuardado && (Date.now() - timerGuardado.timestamp) < TIEMPO_EXPIRACION_MS) {
+                    serieActual = timerGuardado.serieActual || 0;
+                    document.getElementById('num-serie').innerText = serieActual;
+                    if (timerGuardado.finTimer && timerGuardado.finTimer > Date.now()) {
+                        finTimer = timerGuardado.finTimer;
+                        actualizarRelojEnVivo();
+                        intervaloTimer = setInterval(actualizarRelojEnVivo, 250);
+                    }
+                } else {
+                    localStorage.removeItem('gymtrack_timer_v1');
+                }
+            } catch (e) {}
+        }
         const chatSheet = document.getElementById('chat-sheet');
         const overlay = document.getElementById('overlay');
         const chatMensajes = document.getElementById('chat-mensajes');
@@ -692,6 +971,16 @@
         async function enviarMensaje() {
             const pregunta = chatInput.value.trim();
             if (!pregunta) return;
+
+            // Detector inteligente para limpiar el chat sin confundirse con preguntas de comida/rutina
+            const comandoLimpio = pregunta.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,!?¿¡]/g, "").trim();
+            const pideBorrarChat = /^(limpiar|borrar|eliminar|reiniciar|vaciar|clear|reset)$/.test(comandoLimpio) ||
+                                   /^(limpiar|borrar|eliminar|reiniciar|vaciar)\s+(el\s+|la\s+|los\s+|todo\s+el\s+)?(chat|historial|mensajes|conversacion|sesion|memoria)$/.test(comandoLimpio);
+            if (pideBorrarChat) {
+                chatInput.value = '';
+                limpiarChatCompleto();
+                return;
+            }
 
             // 1. Mostrar tu mensaje en la pantalla
             agregarBurbuja(pregunta, 'usuario');
@@ -812,12 +1101,20 @@
             }
             chatMensajes.appendChild(div);
             
+            // Guardar el globo en la memoria de 4 horas (salvo que sea el "Escribiendo..." o un error de red)
+            if (!esTyping && !restaurandoMemoria && !texto.startsWith("Error") && !texto.startsWith("⚠️ Se cortó")) {
+                burbujasGuardadas.push({ texto: texto, remitente: remitente });
+                if (burbujasGuardadas.length > 24) burbujasGuardadas = burbujasGuardadas.slice(-24);
+                guardarSesionChat();
+            }
+
             // Hacer scroll automático hacia abajo
             chatMensajes.scrollTop = chatMensajes.scrollHeight;
             return id;
         }
 
-        // Ejecutar carga al abrir la app
+        // Ejecutar carga y restaurar memoria de 4 horas al abrir la app
+        restaurarSesionYTimer();
         cargarDatos();
     </script>   
 </body>
