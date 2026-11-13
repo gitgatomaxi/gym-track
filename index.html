@@ -775,6 +775,11 @@
             div.style.maxWidth = "85%";
             div.style.lineHeight = "1.4";
             div.style.fontSize = "0.95rem";
+            div.style.flexShrink = "0"; // Prohibido aplastar el globo verticalmente
+            div.style.height = "auto";
+            div.style.overflowWrap = "break-word"; // Corta palabras o links largos dentro del globo
+            div.style.wordBreak = "break-word";
+            div.style.boxSizing = "border-box";
             
             if (remitente === 'usuario') {
                 div.style.background = "var(--neon-cyan)";
