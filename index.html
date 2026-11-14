@@ -298,7 +298,7 @@
         }
 
         .chat-header {
-            padding: 15px 20px;
+            padding: 6px 18px;
             text-align: center;
             border-bottom: 1px solid var(--glass-border);
             font-weight: bold;
@@ -376,15 +376,36 @@
 
         /* --- MODO APPLE WATCH SERIES 7 (Ancho <= 330px y Alto <= 520px) --- */
         @media (max-width: 330px) and (max-height: 520px) {
+            /* Trampa anti-barra del navegador: el scroll ocurre dentro de body y solo avisa al navegador al llegar al tope máximo */
+            html {
+                height: 100%;
+                overflow: hidden;
+            }
+            body {
+                height: 100%;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-y: auto;
+            }
+            /* Apagar desenfoque pesado en el reloj para que nunca se trabe la pantalla en negro al bajar la muñeca */
+            header, nav, #overlay {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            /* Hacer que GYMTRACK y las burbujas suban al desplazar para ver el temporizador completo */
             header {
-                height: 40px;
+                position: relative;
+                top: auto;
+                height: 36px;
+                background: #141414;
             }
             header h1 {
                 font-size: 1.15rem;
             }
             #carrusel-dias {
-                top: 40px;
-                padding: 10px 12px;
+                position: relative;
+                top: auto;
+                padding: 8px 12px;
                 gap: 10px;
             }
             /* Burbujas de los días más grandes para compensar el zoom del reloj */
@@ -394,7 +415,7 @@
                 border-radius: 22px;
             }
             main {
-                padding: 100px 13px 75px 13px;
+                padding: 6px 13px 75px 13px;
             }
             .card {
                 padding: 14px 12px;
@@ -436,13 +457,15 @@
                 height: 100dvh;
             }
             .chat-header {
-                padding: 12px 16px;
-                font-size: 1.1rem;
+                padding: 2px 14px;
+                min-height: 30px;
+                font-size: 1.05rem;
                 box-sizing: border-box;
             }
             .close-btn {
                 font-size: 2.2rem;
-                padding: 2px 12px;
+                line-height: 0.85;
+                padding: 0 10px;
             }
             .chat-body {
                 padding: 10px 8px;
@@ -522,9 +545,9 @@
             <div id="consola-timer" style="display: none;">
                 <div class="timer-reloj" id="reloj-display">00:00</div>
                 <div class="serie-badge" onclick="reiniciarSeries()">
-                    🔥 Serie actual: <span id="num-serie" style="color: var(--neon-cyan); font-size: 1.2rem;">0</span>
+                    🔥 Serie actual: <span id="num-serie" style="color: var(--neon-cyan); font-size: 1.2rem;">1</span>
                     <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 3px;">
-                        (Tocá acá al cambiar de ejercicio para volver a 0)
+                        (Tocá acá al cambiar de ejercicio para volver a 1)
                     </div>
                 </div>
                 <div class="timer-grid">
@@ -793,12 +816,35 @@
             if (window.innerHeight > altoSinTeclado) altoSinTeclado = window.innerHeight;
         });
 
-        // Variables del Temporizador y Series
+        // Variables del Temporizador y Series (arranca siempre en Serie 1)
         let finTimer = 0;
-        let serieActual = 0;
+        let serieActual = 1;
         let intervaloTimer = null;
         let audioCtx = null;
         let nodoSilencioso = null;
+        let wakeLockPantalla = null;
+
+        async function mantenerPantallaEncendida(activar) {
+            try {
+                if (activar && 'wakeLock' in navigator && !wakeLockPantalla) {
+                    wakeLockPantalla = await navigator.wakeLock.request('screen');
+                } else if (!activar && wakeLockPantalla) {
+                    await wakeLockPantalla.release();
+                    wakeLockPantalla = null;
+                }
+            } catch (e) {}
+        }
+
+        // Despertar instantáneo del reloj al girar la muñeca o tocar la pantalla
+        ['visibilitychange', 'focus', 'pageshow', 'touchstart'].forEach(evento => {
+            window.addEventListener(evento, () => {
+                if (finTimer > 0) {
+                    actualizarRelojEnVivo();
+                    if (!intervaloTimer) intervaloTimer = setInterval(actualizarRelojEnVivo, 250);
+                    mantenerPantallaEncendida(true);
+                }
+            }, { passive: true });
+        });
 
         function desbloquearAudio(hacerPipInicial = false) {
             try {
@@ -873,6 +919,7 @@
 
         function iniciarTimer(segundos) {
             desbloquearAudio(true);
+            mantenerPantallaEncendida(true);
             if (navigator.vibrate) navigator.vibrate(40);
             finTimer = Date.now() + (segundos * 1000);
             serieActual++;
@@ -887,7 +934,8 @@
         function detenerTimer() {
             if (navigator.vibrate) navigator.vibrate(30);
             finTimer = 0;
-            if (intervaloTimer) clearInterval(intervaloTimer);
+            if (intervaloTimer) { clearInterval(intervaloTimer); intervaloTimer = null; }
+            mantenerPantallaEncendida(false);
             if (nodoSilencioso) { try { nodoSilencioso.stop(); nodoSilencioso = null; } catch (e) {} }
             document.getElementById('reloj-display').innerText = "00:00";
             document.getElementById('tarjeta-principal').classList.remove('alerta-neon');
@@ -898,8 +946,8 @@
 
         function reiniciarSeries() {
             if (navigator.vibrate) navigator.vibrate(50);
-            serieActual = 0;
-            document.getElementById('num-serie').innerText = "0";
+            serieActual = 1;
+            document.getElementById('num-serie').innerText = "1";
             guardarEstadoTimer();
         }
 
@@ -972,7 +1020,7 @@
             try {
                 const timerGuardado = JSON.parse(localStorage.getItem('gymtrack_timer_v1') || 'null');
                 if (timerGuardado && (Date.now() - timerGuardado.timestamp) < TIEMPO_EXPIRACION_MS) {
-                    serieActual = timerGuardado.serieActual || 0;
+                    serieActual = timerGuardado.serieActual || 1;
                     document.getElementById('num-serie').innerText = serieActual;
                     if (timerGuardado.finTimer && timerGuardado.finTimer > Date.now()) {
                         finTimer = timerGuardado.finTimer;
@@ -989,10 +1037,14 @@
         const chatMensajes = document.getElementById('chat-mensajes');
         const chatInput = document.getElementById('chat-input-text'); // Necesitamos agregarle este ID al input HTML
 
+        chatMensajes.setAttribute('tabindex', '-1');
+
         function abrirChat() {
             chatSheet.classList.add('open');
             overlay.classList.add('active');
-            if (navigator.vibrate) navigator.vibrate(50); // Vibración sutil
+            if (navigator.vibrate) navigator.vibrate(50);
+            // Enfocar la caja de mensajes para que la Corona Digital del Apple Watch mueva las burbujas
+            setTimeout(() => { try { chatMensajes.focus({ preventScroll: true }); } catch (e) {} }, 60);
         }
 
         function cerrarChat() {
@@ -1000,13 +1052,22 @@
             overlay.classList.remove('active');
         }
 
-        // Esta función empaqueta tu pregunta junto con tus datos del día
+        // Capturar el giro de la ruedita del reloj (Corona Digital) cuando el chat está abierto
+        window.addEventListener('wheel', (e) => {
+            if (chatSheet.classList.contains('open')) {
+                e.preventDefault();
+                chatMensajes.scrollTop += e.deltaY;
+            }
+        }, { passive: false });
+
+        // Esta función empaqueta tu pregunta junto con tus datos del día o ejecuta comandos
         async function enviarMensaje() {
-            const pregunta = chatInput.value.trim();
+            let pregunta = chatInput.value.trim();
             if (!pregunta) return;
 
-            // Detector inteligente para limpiar el chat sin confundirse con preguntas de comida/rutina
             const comandoLimpio = pregunta.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,!?¿¡]/g, "").trim();
+
+            // A. Comando para limpiar el chat (sin confundirse con preguntas de comida)
             const pideBorrarChat = /^(limpiar|borrar|eliminar|reiniciar|vaciar|clear|reset)$/.test(comandoLimpio) ||
                                    /^(limpiar|borrar|eliminar|reiniciar|vaciar)\s+(el\s+|la\s+|los\s+|todo\s+el\s+)?(chat|historial|mensajes|conversacion|sesion|memoria)$/.test(comandoLimpio);
             if (pideBorrarChat) {
@@ -1015,9 +1076,141 @@
                 return;
             }
 
+            // B. Comando AYUDA / COMANDOS (Machete limpio para Usuarios - 0 tokens)
+            if (/^(ayuda|comandos|menu|help)$/.test(comandoLimpio)) {
+                agregarBurbuja(pregunta, 'usuario');
+                chatInput.value = '';
+                agregarBurbuja(
+                    "📋 **COMANDOS RÁPIDOS DE GYMTRACK**\n\n" +
+                    "🏋️ **Entrenamiento:**\n" +
+                    "• **hoy** o **rutina**: Tu rutina de hoy + cuidados de lesiones.\n" +
+                    "• **cuidados** o **lesion**: Checklist articular y agarres.\n" +
+                    "• **barra [kg]** *(ej: barra 90)*: Calcula qué discos poner de cada lado.\n\n" +
+                    "🥩 **Nutrición:**\n" +
+                    "• **proxima** o **comida**: Qué te toca comer o suplementar ahora.\n" +
+                    "• **atrasado** o **recalcular**: Reacomoda tus comidas restantes del día.\n" +
+                    "• **finde** o **libre**: Activa el Bolsillo Calórico (Fernet / libre).\n" +
+                    "• **compras**: Lista de supermercado semanal en crudo.\n\n" +
+                    "🧹 **Control:**\n" +
+                    "• **limpiar** o **borrar**: Vacía el chat actual.",
+                    'ia'
+                );
+                return;
+            }
+
+            // C. Comando Secreto ADMIN / DEV (Exclusivo Desarrollador - 0 tokens)
+            if (/^(admin|dev|sistema|panel)$/.test(comandoLimpio)) {
+                agregarBurbuja(pregunta, 'usuario');
+                chatInput.value = '';
+                agregarBurbuja(
+                    "🛠️ **PANEL SECRETO DE DESARROLLADOR**\n\n" +
+                    "• **estado** o **diagnostico**: Radiografía técnica del dispositivo, pantalla, memoria y señal.\n" +
+                    "• **memoria**: Muestra el historial interno exacto que viaja a la IA.\n" +
+                    "• **modelo** o **motor**: Qué modelo de la cascada respondió último.\n" +
+                    "• **gasto** o **tokens**: Reporte de billetera (Hoy, Mes e Histórico en USD y ARS).\n" +
+                    "• **reiniciar gasto**: Pone la billetera del servidor en $0.00.\n" +
+                    "• **reset total**: Borra de raíz chat, series y temporizador del aparato.",
+                    'ia'
+                );
+                return;
+            }
+
+            // D. Comando ESTADO / DIAGNOSTICO (Radiografía en vivo - 0 tokens)
+            if (/^(estado|diagnostico|status|info)$/.test(comandoLimpio)) {
+                agregarBurbuja(pregunta, 'usuario');
+                chatInput.value = '';
+                const esRelojActual = window.innerWidth <= 330 && altoSinTeclado <= 400;
+                const chatData = JSON.parse(localStorage.getItem('gymtrack_chat_v1') || 'null');
+                const minRestantes = chatData ? Math.max(0, Math.round((TIEMPO_EXPIRACION_MS - (Date.now() - chatData.timestamp)) / 60000)) : 240;
+                agregarBurbuja(
+                    "📡 **DIAGNÓSTICO DE SISTEMA EN VIVO**\n\n" +
+                    "• **Dispositivo:** **" + (esRelojActual ? "Apple Watch" : "Celular / PC") + "**\n" +
+                    "• **Pantalla medida:** **" + window.innerWidth + "px** ancho x **" + altoSinTeclado + "px** alto (sin teclado)\n" +
+                    "• **Memoria IA:** **" + historialChat.length + " / 12** mensajes activos\n" +
+                    "• **Vencimiento sesión:** en **" + minRestantes + " min**\n" +
+                    "• **Serie actual:** **Serie " + serieActual + "**\n" +
+                    "• **Temporizador:** **" + (finTimer > Date.now() ? "Corriendo" : "En espera") + "**\n" +
+                    "• **Señal:** **" + (navigator.onLine ? "Online ✅" : "Sin conexión ⚠️") + "**",
+                    'ia'
+                );
+                return;
+            }
+
+            // E. Comando MEMORIA (Ver historial interno - 0 tokens)
+            if (/^(memoria|ver memoria|historial)$/.test(comandoLimpio)) {
+                agregarBurbuja(pregunta, 'usuario');
+                chatInput.value = '';
+                const textoMem = historialChat.length > 0
+                    ? historialChat.map((m, i) => `${i + 1}) **${m.rol}:** ${m.texto}`).join("\n\n")
+                    : "La memoria temporal está vacía en este momento.";
+                agregarBurbuja("🧠 **MEMORIA INTERNA ACTIVA (" + historialChat.length + " msgs):**\n\n" + textoMem, 'ia');
+                return;
+            }
+
+            // F. Comando RESET TOTAL (Fábrica - 0 tokens)
+            if (/^(reset total|borrado total|hard reset)$/.test(comandoLimpio)) {
+                chatInput.value = '';
+                detenerTimer();
+                reiniciarSeries();
+                localStorage.removeItem('gymtrack_timer_v1');
+                limpiarChatCompleto();
+                agregarBurbuja("⚡ **Reset Total completado.** Chat, memoria de 4 hs, temporizador y contador de series reiniciados de fábrica.", 'ia');
+                return;
+            }
+
+            // G. Calculadora Rápida de Barra Olímpica: "barra 90" (0 tokens)
+            const matchBarra = comandoLimpio.match(/^barra\s+(\d+(?:[.,]\d+)?)\s*(?:kg|kilos)?$/);
+            if (matchBarra) {
+                agregarBurbuja(pregunta, 'usuario');
+                chatInput.value = '';
+                const pesoTotal = parseFloat(matchBarra[1].replace(',', '.'));
+                if (pesoTotal <= 20) {
+                    agregarBurbuja("🏋️ La barra olímpica vacía ya pesa **20 kg**. Indicá un peso mayor a 20 (ej: **barra 60**).", 'ia');
+                    return;
+                }
+                let porLado = (pesoTotal - 20) / 2;
+                let resto = porLado;
+                const discosDisp = [20, 15, 10, 5, 2.5, 1.25];
+                const conteo = [];
+                discosDisp.forEach(d => {
+                    const cant = Math.floor((resto + 0.001) / d);
+                    if (cant > 0) {
+                        conteo.push(`**${cant}x ${d} kg**`);
+                        resto = +(resto - cant * d).toFixed(2);
+                    }
+                });
+                agregarBurbuja(
+                    `🏋️ **ARMADO DE BARRA (${pesoTotal} kg totales)**\n` +
+                    `• Barra olímpica: **20 kg**\n` +
+                    `• Peso a cargar por lado: **${porLado} kg**\n` +
+                    `• Discos de cada lado: ${conteo.join(" + ") || "Sin discos"}` +
+                    (resto > 0 ? `\n*(Resto sin disco estándar: ${resto} kg por lado)*` : ""),
+                    'ia'
+                );
+                return;
+            }
+
             // 1. Mostrar tu mensaje en la pantalla
             agregarBurbuja(pregunta, 'usuario');
             chatInput.value = ''; // Limpiar la barra
+
+            // H. Atajos Inteligentes de 1 palabra (expanden la orden antes de viajar a la IA)
+            const atajosIA = {
+                "hoy": "Pasame mi rutina completa de hoy detallando ejercicios, series y repeticiones, e incluí obligatoriamente los cuidados y adaptaciones para mi epicondilitis.",
+                "rutina": "Pasame mi rutina completa de hoy detallando ejercicios, series y repeticiones, e incluí obligatoriamente los cuidados y adaptaciones para mi epicondilitis.",
+                "cuidados": "Recordame el checklist de cuidados articulares, tipos de agarre, uso de straps y precauciones que debo aplicar hoy por mi epicondilitis y lesiones del perfil.",
+                "lesion": "Recordame el checklist de cuidados articulares, tipos de agarre, uso de straps y precauciones que debo aplicar hoy por mi epicondilitis y lesiones del perfil.",
+                "proxima": "Según la hora actual, decime cuál es la próxima comida o suplemento que me toca hoy y qué cantidades exactas lleva.",
+                "comida": "Según la hora actual, decime cuál es la próxima comida o suplemento que me toca hoy y qué cantidades exactas lleva.",
+                "atrasado": "Se me atrasó el horario hoy. Recalculame y reacomodá las comidas que me quedan en el día según la hora actual para cumplir mis macros sin irme a dormir pesado.",
+                "recalcular": "Se me atrasó el horario hoy. Recalculame y reacomodá las comidas que me quedan en el día según la hora actual para cumplir mis macros sin irme a dormir pesado.",
+                "finde": "Activá el protocolo de Bolsillo Calórico de fin de semana: recalculame las comidas de hoy sabiendo que a la noche tengo comida libre y Fernet.",
+                "libre": "Activá el protocolo de Bolsillo Calórico de fin de semana: recalculame las comidas de hoy sabiendo que a la noche tengo comida libre y Fernet.",
+                "compras": "Armame la lista de compras de supermercado para toda la semana con pesos exactos en crudo/seco agrupada por categorías."
+            };
+            if (atajosIA[comandoLimpio]) {
+                pregunta = atajosIA[comandoLimpio];
+            }
 
             // 2. Detectar si estás desde el Apple Watch (Ancho <= 330px Y Alto sin teclado <= 400px)
             const esReloj = window.innerWidth <= 330 && altoSinTeclado <= 400;
