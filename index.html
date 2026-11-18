@@ -354,35 +354,43 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Botoncito para copiar texto dentro de cada globo (usuario e IA) */
+        /* Icono limpio para copiar texto dentro de cada globo (estilo chat original) */
         .contenedor-copiar {
             display: flex;
             justify-content: flex-end;
-            margin-top: 6px;
+            margin-top: 4px;
         }
         .btn-copiar-globo {
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: inherit;
-            border-radius: 8px;
-            padding: 3px 8px;
-            font-size: 0.72rem;
-            font-weight: 600;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.65);
+            padding: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            opacity: 0.85;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
             user-select: none;
+            transition: color 0.2s ease, transform 0.15s ease;
+        }
+        .btn-copiar-globo svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
         .btn-copiar-globo.usuario-btn {
-            background: rgba(0, 0, 0, 0.12);
-            border-color: rgba(0, 0, 0, 0.25);
-            color: #000;
+            color: rgba(0, 0, 0, 0.6);
         }
         .btn-copiar-globo:active {
-            transform: scale(0.94);
-            opacity: 1;
+            transform: scale(0.88);
+            color: var(--neon-cyan);
+        }
+        .btn-copiar-globo.usuario-btn:active {
+            color: #000;
         }
 
         .chat-input-area input:focus {
@@ -1415,10 +1423,13 @@
                 const filaCopiar = document.createElement('div');
                 filaCopiar.className = 'contenedor-copiar';
 
+                const iconoHojasSVG = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                const iconoCheckSVG = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
                 const btnCopiar = document.createElement('button');
                 btnCopiar.type = 'button';
                 btnCopiar.className = 'btn-copiar-globo' + (remitente === 'usuario' ? ' usuario-btn' : '');
-                btnCopiar.innerText = '📋 Copiar';
+                btnCopiar.innerHTML = iconoHojasSVG;
 
                 btnCopiar.onclick = async () => {
                     if (navigator.vibrate) navigator.vibrate(25);
@@ -1435,8 +1446,8 @@
                             document.execCommand('copy');
                             document.body.removeChild(tempArea);
                         }
-                        btnCopiar.innerText = '✓ Copiado';
-                        setTimeout(() => { btnCopiar.innerText = '📋 Copiar'; }, 1400);
+                        btnCopiar.innerHTML = iconoCheckSVG;
+                        setTimeout(() => { btnCopiar.innerHTML = iconoHojasSVG; }, 1400);
                     } catch (e) {}
                 };
 
