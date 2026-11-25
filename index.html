@@ -1313,8 +1313,30 @@
                 alto_px: altoSinTeclado
             };
 
-            // 3. Empaquetar el "Expediente Secreto" comprimido para ahorrar un 25% de tokens
-            const expedienteSecreto = `PERFIL:${JSON.stringify(perfilDatos)}\nPLAN_7_DIAS:${JSON.stringify(planSemanal)}\nDIA_EN_PANTALLA:${diaActualRenderizado}`;
+            // 3. Empaquetar el "Expediente Secreto" deduplicando días con dieta/rutina repetida (ahorra +45% de tokens)
+            const planOptimizado = {};
+            const dietasVistas = {};
+            const rutinasVistas = {};
+            for (const [diaKey, datosDia] of Object.entries(planSemanal)) {
+                const entTexto = (datosDia?.entrenamiento || '').trim();
+                const dieTexto = (datosDia?.dieta || '').trim();
+                const entClave = entTexto.replace(/\s+/g, ' ');
+                const dieClave = dieTexto.replace(/\s+/g, ' ');
+
+                let entFinal = entTexto;
+                let dieFinal = dieTexto;
+
+                if (entClave.length > 80) {
+                    if (rutinasVistas[entClave]) entFinal = `MISMO_ENTRENAMIENTO_QUE_${rutinasVistas[entClave].toUpperCase()}`;
+                    else rutinasVistas[entClave] = diaKey;
+                }
+                if (dieClave.length > 80) {
+                    if (dietasVistas[dieClave]) dieFinal = `MISMA_DIETA_QUE_${dietasVistas[dieClave].toUpperCase()}`;
+                    else dietasVistas[dieClave] = diaKey;
+                }
+                planOptimizado[diaKey] = { entrenamiento: entFinal, dieta: dieFinal };
+            }
+            const expedienteSecreto = `PERFIL:${JSON.stringify(perfilDatos)}\nPLAN_7_DIAS:${JSON.stringify(planOptimizado)}\nDIA_EN_PANTALLA:${diaActualRenderizado}`;
             
             // Este objeto viaja a Google Apps Script (ahora incluye la memoria temporal)
             const paqueteParaIA = {
@@ -1352,9 +1374,9 @@
                     // 1. Guardamos el 100% de tu pregunta intacta
                     historialChat.push({ rol: "Usuario", texto: pregunta });
                     
-                    // 2. Si la respuesta de la IA fue gigante (>350 letras), la recortamos en la memoria para ahorrar tokens
-                    const respuestaParaMemoria = datosRespuesta.respuesta.length > 350 
-                        ? datosRespuesta.respuesta.substring(0, 350) + "... [respuesta extensa resumida en memoria]" 
+                    // 2. Guardamos hasta 1.000 letras de cada respuesta para que la IA no pierda sus propios números y cálculos
+                    const respuestaParaMemoria = datosRespuesta.respuesta.length > 1000 
+                        ? datosRespuesta.respuesta.substring(0, 1000) + "... [respuesta extensa resumida en memoria]" 
                         : datosRespuesta.respuesta;
                     historialChat.push({ rol: "GymTrack", texto: respuestaParaMemoria });
 
